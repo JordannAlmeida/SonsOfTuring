@@ -132,3 +132,8 @@ class OpenTelemetryConfig:
         if self._tracer_provider:
             self._tracer_provider.shutdown()
             logger.info("OpenTelemetry: TracerProvider shut down.")
+
+otel_config = OpenTelemetryConfig(
+    service_name=os.getenv("APP_NAME", "SonsOfTuringAPI"),
+    otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+)

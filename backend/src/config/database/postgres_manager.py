@@ -1,15 +1,14 @@
 import asyncpg
-from asyncpg.pool import Pool
 from typing import Optional, AsyncGenerator
 import logging
 import os
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager
 
 class PostgresManager:
     """
     Manages the PostgreSQL connection pool using asyncpg.
     """
-    _pool: Optional[Pool] = None
+    _pool: Optional[asyncpg.Pool] = None
     _logger = logging.getLogger(__name__)
 
     async def connect(self):
@@ -17,17 +16,19 @@ class PostgresManager:
         Establishes the PostgreSQL connection pool.
         """
         if self._pool is None:
-            self._logger.info(f"Attempting to connect to PostgreSQL at {os.getenv("DATABASE_URL").split('@')[-1]}...")
+            db_url = os.getenv("DATABASE_URL")
+            host = db_url.split('@')[-1] if db_url else "UNKNOWN"
+            self._logger.info(f"Attempting to connect to PostgreSQL at {host}...")
             try:
                 self._pool = await asyncpg.create_pool(
-                    dsn=os.getenv("DATABASE_URL"),
-                    min_size=os.getenv("DB_POOL_MIN_SIZE"),
-                    max_size=os.getenv("DB_POOL_MAX_SIZE"),
-                    timeout=os.getenv("DB_POOL_TIMEOUT"),
+                    dsn=db_url,
+                    min_size=int(os.getenv("DB_POOL_MIN_SIZE", 10)),
+                    max_size=int(os.getenv("DB_POOL_MAX_SIZE", 10)),
+                    timeout=float(os.getenv("DB_POOL_TIMEOUT", 30)),
                 )
                 self._logger.info("PostgreSQL connection pool established successfully.")
             except Exception as e:
-                self._logger.exception(f"Failed to connect to PostgreSQL: {e}") # Use exception for full traceback
+                self._logger.exception(f"Failed to connect to PostgreSQL: {e}")
                 raise
 
     async def disconnect(self):
@@ -40,13 +41,17 @@ class PostgresManager:
             self._pool = None
             self._logger.info("PostgreSQL connection pool closed.")
 
+    @asynccontextmanager
     async def get_connection(self) -> AsyncGenerator[asyncpg.Connection, None]:
         """
         Provides a connection from the pool.
-        This method is intended to be used as a FastAPI dependency.
+        Usage:
+            async with postgres_manager.get_connection() as conn:
+                await conn.fetch(...)
         """
         if self._pool is None:
             raise RuntimeError("PostgreSQL pool is not initialized. Call connect() first.")
+        
         async with self._pool.acquire() as connection:
             yield connection
 
@@ -55,8 +60,6 @@ postgres_manager = PostgresManager()
 async def get_db_connection() -> AsyncGenerator[asyncpg.Connection, None]:
     """
     FastAPI dependency that yields an asyncpg connection from the pool.
-    The connection is automatically released back to the pool when the
-    request is finished.
     """
-    async for connection in postgres_manager.get_connection():
+    async with postgres_manager.get_connection() as connection:
         yield connection

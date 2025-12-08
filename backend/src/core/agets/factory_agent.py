@@ -38,13 +38,13 @@ class FactoryAgent:
         return Agent(
             model=model,
             name=agent_factory_input.name,
-            tools=FactoryAgent.build_tools(agent_factory_input.tools),
+            tools=FactoryAgent._build_tools(agent_factory_input.tools),
             reasoning=agent_factory_input.reasoning,
             description=agent_factory_input.description,
         )
 
     @staticmethod
-    def build_tools(tools: Optional[list[int]]) -> Optional[List[Union[Toolkit, Callable, Function, Dict]]]:
+    def _build_tools(tools: Optional[list[int]]) -> Optional[List[Union[Toolkit, Callable, Function, Dict]]]:
         if not tools:
             return None
         

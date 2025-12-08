@@ -11,6 +11,16 @@ class ModelLLM(Enum):
     OLLAMA = 5
     GROQ = 6
     DEEPSEEK = 7
+
+    def __str__(self) -> str:
+        return self.name
+
+    @classmethod
+    def get_from_int(cls, value: int) -> 'ModelLLM':
+        for model in cls:
+            if model.value == value:
+                return model
+        raise ValueError(f"No ModelLLM with value {value}")
     
 
 
@@ -22,3 +32,10 @@ class AgentFactoryInput(BaseModel):
     tools: Optional[list[int]]
     reasoning: bool = False
     description: str
+    output_parser: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        if isinstance(data.get("modelLLM"), (int, str)):
+            data["modelLLM"] = ModelLLM[data["modelLLM"]] if isinstance(data["modelLLM"], str) else ModelLLM(data["modelLLM"])
+        return cls(**data)

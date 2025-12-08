@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
-from ..config.database.postgres_manager import get_db_connection
-from asyncpg import Connection
 from ..services.manager_agents import ManagerAgentsService
-from typing import List
-from ..models.ui.agents.manage_agents import GetAllAgentsResponse
+from ..repository.agents_repository import AgentsRepository
+from typing import List, Optional
+from ..models.ui.agents.manage_agents import GetAllAgentsResponse, GetAgentByIdResponse
 
 router = APIRouter(
     prefix="/agents",
@@ -11,14 +10,30 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-async def get_manage_agents_service(db_connection: Connection = Depends(get_db_connection)) -> ManagerAgentsService:
-    return ManagerAgentsService(db_connection)
+async def get_manage_agents_service() -> ManagerAgentsService:
+    repository = AgentsRepository()
+    return ManagerAgentsService(repository)
 
 @router.get("/", response_model=List[GetAllAgentsResponse])
 async def get_all_agents(
-    name_part: str,
+    name_part: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100
+    limit: int = 100,
+    service: ManagerAgentsService = Depends(get_manage_agents_service)
 ):
-    #TODO: call service method to list all agents
-    return None
+    return await service.get_all_agents(name_part, skip, limit)
+
+@router.get("/{agent_id}", response_model=GetAgentByIdResponse)
+async def get_agent_by_id(
+    agent_id: int,
+    service: ManagerAgentsService = Depends(get_manage_agents_service)
+):
+    return await service.get_agent_by_id(agent_id)
+
+@router.post("/{agent_id}/execute", response_model=Optional[str])
+async def execute_agent_action(
+    agent_id: int,
+    prompt: str,
+    service: ManagerAgentsService = Depends(get_manage_agents_service)
+):
+    return await service.execute_agent_action(agent_id, prompt)
