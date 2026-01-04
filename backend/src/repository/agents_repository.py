@@ -1,6 +1,6 @@
-from backend.src.models.entity.tools_entity import ToolsEntity
-from ..config.database.postgres_manager import postgres_manager
-from ..models.entity.agent_entity import AgentEntity, AgentResumeEntity
+from models.entity.tools_entity import ToolsEntity
+from config.database.postgres_manager import postgres_manager
+from models.entity.agent_entity import AgentEntity, AgentResumeEntity
 
 from abc import ABC, abstractmethod
 
@@ -11,6 +11,9 @@ class IAgentsRepository(ABC):
         pass
     @abstractmethod
     async def get_agent_by_id(self, agent_id: int) -> AgentEntity | None:
+        pass
+    @abstractmethod
+    async def create_agent(self, name: str, description: str, model: int, tools: list[int], reasoning: bool, type_model: str, output_parser: str | None) -> AgentEntity:
         pass
 
 
@@ -40,11 +43,12 @@ class AgentsRepository(IAgentsRepository):
     async def get_agent_by_id(self, agent_id: int) -> AgentEntity | None:
         query = """
             SELECT 
-            a.id, a.name, a.description, a.model, a.reasoning, a.type_model,
-            t.id AS tool_id, t.name AS tool_name, t.description AS tool_description
+            a.id, a.name, a.description, a.llm as model, a.reasoning, a.type_model, a.output_parser,
+            t.id AS tool_id, t.name AS tool_name, t.description AS tool_description, t.function_caller,
+            a.created_at, a.updated_at
             FROM agents a
-            LEFT JOIN unnest(a.tools) AS tool_id ON TRUE
-            LEFT JOIN tools t ON t.id = tool_id
+            LEFT JOIN agents_tools at ON a.id = at.agent_id
+            LEFT JOIN tools t ON at.tool_id = t.id
             WHERE a.id = $1
         """
         params = [agent_id]
@@ -64,13 +68,69 @@ class AgentsRepository(IAgentsRepository):
                                     function_caller=row['function_caller']
                                 )
                             )
-                        return AgentEntity(
-                            id=first_row['id'],
-                            name=first_row['name'],
-                            description=first_row['description'],
-                            model=first_row['model'],
-                            tools=tools_entities,
-                            reasoning=first_row['reasoning'],
-                            type_model=first_row['type_model']
-                        )
+                    return AgentEntity(
+                        id=first_row['id'],
+                        name=first_row['name'],
+                        description=first_row['description'],
+                        model=first_row['model'],
+                        tools=tools_entities,
+                        reasoning=first_row['reasoning'],
+                        type_model=first_row['type_model'],
+                        output_parser=first_row['output_parser'],
+                        created_at=first_row['created_at'],
+                        updated_at=first_row['updated_at']
+                    )
         return None
+
+    async def create_agent(self, name: str, description: str, model: int, tools: list[int], reasoning: bool, type_model: str, output_parser: str | None) -> AgentEntity:
+        insert_agent_query = """
+            INSERT INTO agents (name, description, llm, reasoning, type_model, output_parser)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, description, llm as model, reasoning, type_model, output_parser, created_at, updated_at
+        """
+        agent_params = [name, description, model, reasoning, type_model, output_parser]
+
+        async with postgres_manager.get_connection() as connection:
+            async with connection.transaction():
+                agent_row = await connection.fetchrow(insert_agent_query, *agent_params)
+                
+                agent_id = agent_row['id']
+                
+                if tools:
+                    insert_tools_query = """
+                        INSERT INTO agents_tools (agent_id, tool_id)
+                        VALUES ($1, $2)
+                    """
+                    for tool_id in tools:
+                        await connection.execute(insert_tools_query, agent_id, tool_id)
+                
+                tools_query = """
+                    SELECT t.id, t.name, t.description, t.function_caller
+                    FROM tools t
+                    INNER JOIN agents_tools at ON at.tool_id = t.id
+                    WHERE at.agent_id = $1
+                """
+                tools_rows = await connection.fetch(tools_query, agent_id)
+                
+                tools_entities = [
+                    ToolsEntity(
+                        id=row['id'],
+                        name=row['name'],
+                        description=row['description'],
+                        function_caller=row['function_caller']
+                    )
+                    for row in tools_rows
+                ]
+                
+                return AgentEntity(
+                    id=agent_row['id'],
+                    name=agent_row['name'],
+                    description=agent_row['description'],
+                    model=agent_row['model'],
+                    tools=tools_entities,
+                    reasoning=agent_row['reasoning'],
+                    type_model=agent_row['type_model'],
+                    output_parser=agent_row['output_parser'],
+                    created_at=agent_row['created_at'],
+                    updated_at=agent_row['updated_at']
+                )

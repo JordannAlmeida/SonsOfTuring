@@ -1,21 +1,24 @@
+from load_env import load_env
+load_env()
+
 import contextlib
-from .config.monitory.otel_config import otel_config
-from .config.monitory.otel_ai_config import otel_ai_config
+#from config.monitory.otel_config import otel_config
+from config.monitory.otel_ai_config import otel_ai_config
 from fastapi import FastAPI, HTTPException, status
-from .config.database.postgres_manager import postgres_manager
-from .controllers import manage_agents
+from config.database.postgres_manager import postgres_manager
+from controllers import manage_agents
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application is starting up...")
-    otel_config.initialize(app)
-    otel_ai_config.initialize()
+    #otel_config.initialize(app)
+    otel_ai_config.initialize_langfuse()
     await postgres_manager.connect()
     print("FastAPI startup complete.")
     yield
     print("Application is shutting down...")
-    otel_config.shutdown()
+    #otel_config.shutdown()
     await postgres_manager.disconnect()
     print("FastAPI shutdown complete.")
 

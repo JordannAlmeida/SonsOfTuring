@@ -1,24 +1,6 @@
 services:
-  backend:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/sonsofturing
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      - OTEL_EXPORTER_OTLP_AI_ENDPOINT=http://localhost:4319
-      - APP_NAME=SonsOfTuringAPI
-    depends_on:
-      - postgres
-      - jaeger
-      - clickhouse
-      - openlit
-    networks:
-      - sonsofturing-network
 
-  postgres:
+  postgres-for-backend:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=user
@@ -26,78 +8,31 @@ services:
       - POSTGRES_DB=sonsofturing
     volumes:
       - ../backend/databases:/docker-entrypoint-initdb.d
+      - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
-    networks:
-      - sonsofturing-network
+      - "5435:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d sonsofturing"]
       interval: 5s
       timeout: 5s
       retries: 5
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    ports:
-      - "16686:16686" # UI
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
     networks:
-      - sonsofturing-network
+      - sons_of_turing_net
 
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.4.1
-    container_name: clickhouse
-    environment:
-      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
-    volumes:
-      - clickhouse-data:/var/lib/clickhouse
-      - ./config/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
-    ports:
-      - "9000:9000"
-      - "8123:8123"
-    restart: always
-    networks:
-      - sonsofturing-network
-
-  openlit:
-    image: ghcr.io/openlit/openlit:latest
-    container_name: openlit
-    environment:
-      TELEMETRY_ENABLED: "true"
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 8123
-      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-      SQLITE_DATABASE_URL: file:/app/client/data/data.db
-      PORT: ${PORT:-3000}
-      DOCKER_PORT: ${PORT:-3000}
-      OPAMP_LOG_LEVEL: ${OPAMP_LOG_LEVEL:-info}
-
-    env_file:
-      - path: ./config/.env.local
-        required: false
-    ports:
-      - "${PORT:-3000}:${DOCKER_PORT:-3000}"
-      - "4319:4319"  # OTLP gRPC receiver different of jaeger
-      - "4320:4320"  # OTLP HTTP receiver different of jaeger
-    depends_on:
-      - clickhouse
-    volumes:
-      - openlit-data:/app/client/data
-      - ./config/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
-    restart: always
-    networks:
-      - sonsofturing-network
+  # jaeger:
+  #   image: jaegertracing/all-in-one:latest
+  #   environment:
+  #     - COLLECTOR_OTLP_ENABLED=true
+  #   ports:
+  #     - "16686:16686" # UI
+  #     - "4319:4319"   # OTLP gRPC
+  #     - "4320:4320"   # OTLP HTTP
+  #   networks:
+  #     - sons_of_turing_net
 
 networks:
-  sonsofturing-network:
+  sons_of_turing_net:
     driver: bridge
 
 volumes:
-  clickhouse-data:
-  openlit-data:
+  postgres-data:

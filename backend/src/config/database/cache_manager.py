@@ -77,7 +77,6 @@ class InMemoryCacheBackend(CacheBackend):
 				return {}
 			value, expire_at = entry
 			if expire_at is not None and expire_at <= time.time():
-				# expired
 				del self._store[key]
 				return {}
 			return value

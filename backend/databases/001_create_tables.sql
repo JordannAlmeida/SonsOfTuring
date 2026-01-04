@@ -1,15 +1,16 @@
-CREATE TABLE agents (
+CREATE TABLE IF NOT EXISTS agents (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     llm int NOT NULL,
     reasoning BOOLEAN NOT NULL,
     type_model VARCHAR(255) NOT NULL,
+    output_parser VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tools (
+CREATE TABLE IF NOT EXISTS tools (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -18,7 +19,7 @@ CREATE TABLE tools (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE agents_tools (
+CREATE TABLE IF NOT EXISTS agents_tools (
     agent_id int NOT NULL,
     tool_id int NOT NULL,
     PRIMARY KEY (agent_id, tool_id)

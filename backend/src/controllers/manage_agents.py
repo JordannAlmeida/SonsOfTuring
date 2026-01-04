@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from ..services.manager_agents import ManagerAgentsService
-from ..repository.agents_repository import AgentsRepository
+from services.manager_agents import ManagerAgentsService
+from repository.agents_repository import AgentsRepository
 from typing import List, Optional
-from ..models.ui.agents.manage_agents import GetAllAgentsResponse, GetAgentByIdResponse
+from models.ui.agents.manage_agents import GetAllAgentsResponse, GetAgentByIdResponse, CreateAgentRequest, CreateAgentResponse, ExecuteAgentRequest
 
 router = APIRouter(
     prefix="/agents",
@@ -30,10 +30,19 @@ async def get_agent_by_id(
 ):
     return await service.get_agent_by_id(agent_id)
 
+
+
 @router.post("/{agent_id}/execute", response_model=Optional[str])
 async def execute_agent_action(
     agent_id: int,
-    prompt: str,
+    request: ExecuteAgentRequest,
     service: ManagerAgentsService = Depends(get_manage_agents_service)
 ):
-    return await service.execute_agent_action(agent_id, prompt)
+    return await service.execute_agent_action(agent_id, request.prompt)
+
+@router.post("/", response_model=CreateAgentResponse)
+async def create_agent(
+    request: CreateAgentRequest,
+    service: ManagerAgentsService = Depends(get_manage_agents_service)
+):
+    return await service.create_agent(request)

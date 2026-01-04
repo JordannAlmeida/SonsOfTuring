@@ -1,9 +1,9 @@
-from ..repository.agents_repository import IAgentsRepository
-from ..models.ui.agents.manage_agents import GetAgentByIdResponse, GetAllAgentsResponse
-from ..models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM
+from repository.agents_repository import IAgentsRepository
+from models.ui.agents.manage_agents import GetAgentByIdResponse, GetAllAgentsResponse, CreateAgentRequest, CreateAgentResponse
+from models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM
 import abc
-from ..config.database.cache_manager import cache_manager
-from ..core.agets.execute_agent import ExecuteAgent
+from config.database.cache_manager import cache_manager
+from core.agets.execute_agent import ExecuteAgent
 from typing import Optional
 
 
@@ -26,12 +26,12 @@ class ManagerAgentsService(IManagerAgentsService):
         if (limit is None):
             limit = 100
         agents_resume_entity_list = await self.agents_repository.get_all_agents(name_part, skip, limit)
-        agents_response: list[GetAllAgentsResponse] = list(map(lambda agent_resume_entity: GetAllAgentsResponse(name=agent_resume_entity.name), agents_resume_entity_list))
+        agents_response: list[GetAllAgentsResponse] = list(map(lambda agent_resume_entity: GetAllAgentsResponse(id=agent_resume_entity.id, name=agent_resume_entity.name), agents_resume_entity_list))
         return agents_response
     
     async def get_agent_by_id(self, agent_id: int):
-        if self.cache.exists(f"get_agent_by_id:{agent_id}"):
-            json_data = self.cache.get(f"get_agent_by_id:{agent_id}")
+        json_data = await self.cache.get(f"get_agent_by_id:{agent_id}")
+        if json_data:
             return GetAgentByIdResponse(**json_data)
 
         agent_entity = await self.agents_repository.get_agent_by_id(agent_id)
@@ -65,20 +65,53 @@ class ManagerAgentsService(IManagerAgentsService):
         return result
 
     async def _recover_agent_factory_input(self, agent_id: int) -> AgentFactoryInput | None:
-        cached_data = self.cache.get(f"get_agent_by_id:{agent_id}")
+        cached_data = await self.cache.get(f"get_agent_by_id:{agent_id}")
         if cached_data:
-            return AgentFactoryInput(**cached_data)
+            return AgentFactoryInput(
+               id=cached_data['id'],
+               name=cached_data['name'],
+               description=cached_data['description'],
+               modelLLM=ModelLLM.get_from_int(cached_data['model']),
+               typeModel=cached_data['type_model'],
+               tools=[tool['id'] for tool in cached_data['tools']],
+               reasoning=cached_data['reasoning'],
+               output_parser=cached_data.get('output_parser')
+            )
 
         agent_entity = await self.agents_repository.get_agent_by_id(agent_id)
         if agent_entity is None:
             return None
         agent_factory_input = AgentFactoryInput(
+            id=agent_entity.id,
             modelLLM=ModelLLM.get_from_int(agent_entity.model),
             typeModel=agent_entity.type_model,
             name=agent_entity.name,
             tools=[tool.id for tool in agent_entity.tools],
             reasoning=agent_entity.reasoning,
-            description=agent_entity.description
+            description=agent_entity.description,
+            output_parser=agent_entity.output_parser
         )
-        self.cache.set(f"get_agent_by_id:{agent_id}", agent_factory_input.model_dump(), ttl=300)
+        await self.cache.set(f"get_agent_by_id:{agent_id}", agent_factory_input.model_dump(), ttl=300)
         return agent_factory_input
+    
+    async def create_agent(self, request: CreateAgentRequest) -> CreateAgentResponse:
+        agent_entity = await self.agents_repository.create_agent(
+            name=request.name,
+            description=request.description,
+            model=request.model,
+            tools=request.tools,
+            reasoning=request.reasoning,
+            type_model=request.type_model,
+            output_parser=request.output_parser
+        )
+        
+        return CreateAgentResponse(
+            id=agent_entity.id,
+            name=agent_entity.name,
+            description=agent_entity.description,
+            model=agent_entity.model,
+            tools=[tool.id for tool in agent_entity.tools],
+            reasoning=agent_entity.reasoning,
+            type_model=agent_entity.type_model,
+            output_parser=agent_entity.output_parser
+        )

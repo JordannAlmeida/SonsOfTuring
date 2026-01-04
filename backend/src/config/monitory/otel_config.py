@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -76,7 +76,6 @@ class OpenTelemetryConfig:
         resource = self._get_resource()
         self._tracer_provider = TracerProvider(resource=resource)
 
-        # Configure OTLP Exporter
         if self.otlp_endpoint:
             otlp_exporter = OTLPSpanExporter(endpoint=self.otlp_endpoint)
             self._tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
@@ -84,13 +83,11 @@ class OpenTelemetryConfig:
         else:
             logger.info("OpenTelemetry: OTLP Exporter disabled (no endpoint provided).")
 
-        # Configure Console Exporter (for debugging)
         if self.enable_console_exporter:
             console_exporter = ConsoleSpanExporter()
             self._tracer_provider.add_span_processor(BatchSpanProcessor(console_exporter))
             logger.info("OpenTelemetry: Console Exporter enabled.")
 
-        # Set the global tracer provider
         trace.set_tracer_provider(self._tracer_provider)
         logger.info("OpenTelemetry: Global TracerProvider configured.")
 

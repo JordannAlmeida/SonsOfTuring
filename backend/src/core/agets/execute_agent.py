@@ -1,6 +1,6 @@
 from .factory_agent import FactoryAgent
 from agno.agent import Agent, RunOutput
-from ...models.dto.agents.agentLLM import AgentFactoryInput
+from models.dto.agents.agentLLM import AgentFactoryInput
 
 class ExecuteAgent:
 

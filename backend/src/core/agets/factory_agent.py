@@ -10,7 +10,7 @@ from agno.models.ollama import Ollama
 from agno.tools.toolkit import Toolkit
 from agno.tools.function import Function
 
-from ...models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM
+from models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM
 from typing import Optional, Union, Dict, List, Callable
 
 class FactoryAgent:

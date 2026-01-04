@@ -6,7 +6,7 @@ from typing import Optional
 class ModelLLM(Enum):
     GEMINI = 1
     CLAUDE = 2
-    OPEANAI = 3
+    OPEANAI = 3 
     XAI = 4
     OLLAMA = 5
     GROQ = 6
@@ -24,14 +24,14 @@ class ModelLLM(Enum):
     
 
 
-@dataclass
 class AgentFactoryInput(BaseModel):
+    id: int | None = None
+    name: str
+    description: str
     modelLLM: ModelLLM
     typeModel: str
-    name: str
     tools: Optional[list[int]]
     reasoning: bool = False
-    description: str
     output_parser: Optional[str] = None
 
     @classmethod
