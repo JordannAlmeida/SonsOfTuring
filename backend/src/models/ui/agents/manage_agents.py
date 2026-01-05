@@ -15,6 +15,12 @@ class GetAgentByIdResponse(BaseModel):
     tools: list[dict]
     reasoning: bool
     type_model: str
+    output_parser: Optional[str] = None
+    instructions: Optional[str] = None
+    has_storage: bool = False
+    knowledge_collection_name: Optional[str] = None
+    knowledge_description: Optional[str] = None
+    knowledge_top_k: Optional[int] = 5
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -23,6 +29,7 @@ class GetAgentByIdResponse(BaseModel):
 
 class ExecuteAgentRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
+    session_id: Optional[str] = None
 
 class CreateAgentRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -32,6 +39,11 @@ class CreateAgentRequest(BaseModel):
     reasoning: bool = Field(default=False)
     type_model: str = Field(..., min_length=1, max_length=255)
     output_parser: Optional[str] = Field(default=None, max_length=255)
+    instructions: Optional[str] = Field(default=None)
+    has_storage: bool = Field(default=False)
+    knowledge_collection_name: Optional[str] = Field(default=None, max_length=255)
+    knowledge_description: Optional[str] = Field(default=None)
+    knowledge_top_k: Optional[int] = Field(default=5, ge=1)
 
     @field_validator('model')
     @classmethod
@@ -81,4 +93,9 @@ class CreateAgentResponse(BaseModel):
     tools: list[int]
     reasoning: bool
     type_model: str
-    output_parser: Optional[str]
+    output_parser: Optional[str] = None
+    instructions: Optional[str] = None
+    has_storage: bool = False
+    knowledge_collection_name: Optional[str] = None
+    knowledge_description: Optional[str] = None
+    knowledge_top_k: Optional[int] = 5

@@ -1,6 +1,7 @@
+from datetime import datetime
 from repository.agents_repository import IAgentsRepository
 from models.ui.agents.manage_agents import GetAgentByIdResponse, GetAllAgentsResponse, CreateAgentRequest, CreateAgentResponse
-from models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM
+from models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM, AgentExecuteOutput
 import abc
 from config.database.cache_manager import cache_manager
 from core.agets.execute_agent import ExecuteAgent
@@ -17,6 +18,7 @@ class ManagerAgentsService(IManagerAgentsService):
     def __init__(self, agents_repository: IAgentsRepository):
         self.agents_repository = agents_repository
         self.cache = cache_manager
+        self.period_to_prune_memory_agent = 86400  # 24 hours
 
     async def get_all_agents(self, name_part: str, skip: int, limit: int):
         if (name_part is None):
@@ -51,18 +53,35 @@ class ManagerAgentsService(IManagerAgentsService):
             model=agent_entity.model,
             tools=tools_list,
             reasoning=agent_entity.reasoning,
-            type_model=agent_entity.type_model
+            type_model=agent_entity.type_model,
+            output_parser=agent_entity.output_parser,
+            instructions=agent_entity.instructions,
+            has_storage=agent_entity.has_storage,
+            knowledge_collection_name=agent_entity.knowledge_collection_name,
+            knowledge_description=agent_entity.knowledge_description,
+            knowledge_top_k=agent_entity.knowledge_top_k
         )
         await self.cache.set(f"get_agent_by_id:{agent_id}", agent_response.model_dump(), ttl=300)
         return agent_response
 
-    async def execute_agent_action(self, agent_id: int, prompt: str) -> Optional[str]:
+    async def execute_agent_action(self, agent_id: int, prompt: str, user_id: str, session_id: Optional[str]) -> Optional[AgentExecuteOutput]:
         agent_factory_input = await self._recover_agent_factory_input(agent_id)
         if agent_factory_input is None:
             return None
-        
-        result = await ExecuteAgent.run_agent(agent_factory_input, prompt)
+        prune_memory = await self._check_if_necessary_prune_memory_agent(agent_id, user_id)
+        result = await ExecuteAgent.run_agent(agent_factory_input, prompt, session_id, user_id, prune_memory=prune_memory)
         return result
+    
+    async def _check_if_necessary_prune_memory_agent(self, agent_id: int, user_id: str) -> bool:
+        
+        datetime_last_prune = await self.cache.get(f"agent_memory_prune:{agent_id}:{user_id}")
+        if datetime_last_prune is None:
+            await self.cache.set(f"agent_memory_prune:{agent_id}:{user_id}", datetime.now(), ttl=self.period_to_prune_memory_agent)  # 24 hours
+            return True
+        if (datetime.now() - datetime_last_prune).total_seconds() > self.period_to_prune_memory_agent:  # 24 hours
+            await self.cache.set(f"agent_memory_prune:{agent_id}:{user_id}", datetime.now(), ttl=self.period_to_prune_memory_agent)  # 24 hours
+            return True
+        return False
 
     async def _recover_agent_factory_input(self, agent_id: int) -> AgentFactoryInput | None:
         cached_data = await self.cache.get(f"get_agent_by_id:{agent_id}")
@@ -75,7 +94,12 @@ class ManagerAgentsService(IManagerAgentsService):
                typeModel=cached_data['type_model'],
                tools=[tool['id'] for tool in cached_data['tools']],
                reasoning=cached_data['reasoning'],
-               output_parser=cached_data.get('output_parser')
+               output_parser=cached_data.get('output_parser'),
+               instructions=cached_data.get('instructions'),
+               has_storage=cached_data.get('has_storage', False),
+               knowledge_collection_name=cached_data.get('knowledge_collection_name'),
+               knowledge_description=cached_data.get('knowledge_description'),
+               knowledge_top_k=cached_data.get('knowledge_top_k', 5)
             )
 
         agent_entity = await self.agents_repository.get_agent_by_id(agent_id)
@@ -89,7 +113,12 @@ class ManagerAgentsService(IManagerAgentsService):
             tools=[tool.id for tool in agent_entity.tools],
             reasoning=agent_entity.reasoning,
             description=agent_entity.description,
-            output_parser=agent_entity.output_parser
+            output_parser=agent_entity.output_parser,
+            instructions=agent_entity.instructions,
+            has_storage=agent_entity.has_storage,
+            knowledge_collection_name=agent_entity.knowledge_collection_name,
+            knowledge_description=agent_entity.knowledge_description,
+            knowledge_top_k=agent_entity.knowledge_top_k
         )
         await self.cache.set(f"get_agent_by_id:{agent_id}", agent_factory_input.model_dump(), ttl=300)
         return agent_factory_input
@@ -102,7 +131,12 @@ class ManagerAgentsService(IManagerAgentsService):
             tools=request.tools,
             reasoning=request.reasoning,
             type_model=request.type_model,
-            output_parser=request.output_parser
+            output_parser=request.output_parser,
+            instructions=request.instructions,
+            has_storage=request.has_storage,
+            knowledge_collection_name=request.knowledge_collection_name,
+            knowledge_description=request.knowledge_description,
+            knowledge_top_k=request.knowledge_top_k
         )
         
         return CreateAgentResponse(
@@ -113,5 +147,10 @@ class ManagerAgentsService(IManagerAgentsService):
             tools=[tool.id for tool in agent_entity.tools],
             reasoning=agent_entity.reasoning,
             type_model=agent_entity.type_model,
-            output_parser=agent_entity.output_parser
+            output_parser=agent_entity.output_parser,
+            instructions=agent_entity.instructions,
+            has_storage=agent_entity.has_storage,
+            knowledge_collection_name=agent_entity.knowledge_collection_name,
+            knowledge_description=agent_entity.knowledge_description,
+            knowledge_top_k=agent_entity.knowledge_top_k
         )

@@ -32,10 +32,20 @@ class AgentFactoryInput(BaseModel):
     typeModel: str
     tools: Optional[list[int]]
     reasoning: bool = False
+    instructions: Optional[str] = None
     output_parser: Optional[str] = None
+    has_storage: bool = False
+    knowledge_collection_name: Optional[str] = None
+    knowledge_description: Optional[str] = None
+    knowledge_top_k: Optional[int] = 5
 
     @classmethod
     def from_dict(cls, data: dict):
         if isinstance(data.get("modelLLM"), (int, str)):
             data["modelLLM"] = ModelLLM[data["modelLLM"]] if isinstance(data["modelLLM"], str) else ModelLLM(data["modelLLM"])
         return cls(**data)
+    
+class AgentExecuteOutput(BaseModel):
+    response: str
+    session_id: str
+    content_type: str

@@ -1,6 +1,7 @@
 from models.entity.tools_entity import ToolsEntity
 from config.database.postgres_manager import postgres_manager
 from models.entity.agent_entity import AgentEntity, AgentResumeEntity
+from typing import Optional
 
 from abc import ABC, abstractmethod
 
@@ -13,7 +14,21 @@ class IAgentsRepository(ABC):
     async def get_agent_by_id(self, agent_id: int) -> AgentEntity | None:
         pass
     @abstractmethod
-    async def create_agent(self, name: str, description: str, model: int, tools: list[int], reasoning: bool, type_model: str, output_parser: str | None) -> AgentEntity:
+    async def create_agent(
+        self,
+        name: str,
+        description: str,
+        model: int,
+        tools: list[int],
+        reasoning: bool,
+        type_model: str,
+        output_parser: Optional[str] = None,
+        instructions: Optional[str] = None,
+        has_storage: bool = False,
+        knowledge_collection_name: Optional[str] = None,
+        knowledge_description: Optional[str] = None,
+        knowledge_top_k: Optional[int] = 5
+    ) -> AgentEntity:
         pass
 
 
@@ -44,6 +59,7 @@ class AgentsRepository(IAgentsRepository):
         query = """
             SELECT 
             a.id, a.name, a.description, a.llm as model, a.reasoning, a.type_model, a.output_parser,
+            a.instructions, a.has_storage, a.knowledge_collection_name, a.knowledge_description, a.knowledge_top_k,
             t.id AS tool_id, t.name AS tool_name, t.description AS tool_description, t.function_caller,
             a.created_at, a.updated_at
             FROM agents a
@@ -77,18 +93,37 @@ class AgentsRepository(IAgentsRepository):
                         reasoning=first_row['reasoning'],
                         type_model=first_row['type_model'],
                         output_parser=first_row['output_parser'],
+                        instructions=first_row['instructions'],
+                        has_storage=first_row['has_storage'],
+                        knowledge_collection_name=first_row['knowledge_collection_name'],
+                        knowledge_description=first_row['knowledge_description'],
+                        knowledge_top_k=first_row['knowledge_top_k'],
                         created_at=first_row['created_at'],
                         updated_at=first_row['updated_at']
                     )
         return None
 
-    async def create_agent(self, name: str, description: str, model: int, tools: list[int], reasoning: bool, type_model: str, output_parser: str | None) -> AgentEntity:
+    async def create_agent(
+        self,
+        name: str,
+        description: str,
+        model: int,
+        tools: list[int],
+        reasoning: bool,
+        type_model: str,
+        output_parser: Optional[str] = None,
+        instructions: Optional[str] = None,
+        has_storage: bool = False,
+        knowledge_collection_name: Optional[str] = None,
+        knowledge_description: Optional[str] = None,
+        knowledge_top_k: Optional[int] = 5
+    ) -> AgentEntity:
         insert_agent_query = """
-            INSERT INTO agents (name, description, llm, reasoning, type_model, output_parser)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, name, description, llm as model, reasoning, type_model, output_parser, created_at, updated_at
+            INSERT INTO agents (name, description, llm, reasoning, type_model, output_parser, instructions, has_storage, knowledge_collection_name, knowledge_description, knowledge_top_k)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, name, description, llm as model, reasoning, type_model, output_parser, instructions, has_storage, knowledge_collection_name, knowledge_description, knowledge_top_k, created_at, updated_at
         """
-        agent_params = [name, description, model, reasoning, type_model, output_parser]
+        agent_params = [name, description, model, reasoning, type_model, output_parser, instructions, has_storage, knowledge_collection_name, knowledge_description, knowledge_top_k]
 
         async with postgres_manager.get_connection() as connection:
             async with connection.transaction():
@@ -131,6 +166,11 @@ class AgentsRepository(IAgentsRepository):
                     reasoning=agent_row['reasoning'],
                     type_model=agent_row['type_model'],
                     output_parser=agent_row['output_parser'],
+                    instructions=agent_row['instructions'],
+                    has_storage=agent_row['has_storage'],
+                    knowledge_collection_name=agent_row['knowledge_collection_name'],
+                    knowledge_description=agent_row['knowledge_description'],
+                    knowledge_top_k=agent_row['knowledge_top_k'],
                     created_at=agent_row['created_at'],
                     updated_at=agent_row['updated_at']
                 )

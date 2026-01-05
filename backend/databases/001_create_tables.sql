@@ -6,6 +6,11 @@ CREATE TABLE IF NOT EXISTS agents (
     reasoning BOOLEAN NOT NULL,
     type_model VARCHAR(255) NOT NULL,
     output_parser VARCHAR(255),
+    instructions TEXT,
+    has_storage BOOLEAN DEFAULT FALSE,
+    knowledge_collection_name VARCHAR(255),
+    knowledge_description TEXT,
+    knowledge_top_k INT DEFAULT 5,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

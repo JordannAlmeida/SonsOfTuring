@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from models.dto.agents.agentLLM import AgentExecuteOutput
 from services.manager_agents import ManagerAgentsService
 from repository.agents_repository import AgentsRepository
 from typing import List, Optional
@@ -32,13 +33,14 @@ async def get_agent_by_id(
 
 
 
-@router.post("/{agent_id}/execute", response_model=Optional[str])
+@router.post("/{agent_id}/execute", response_model=Optional[AgentExecuteOutput])
 async def execute_agent_action(
     agent_id: int,
     request: ExecuteAgentRequest,
     service: ManagerAgentsService = Depends(get_manage_agents_service)
 ):
-    return await service.execute_agent_action(agent_id, request.prompt)
+    #TODO: pass user_id from header or token
+    return await service.execute_agent_action(agent_id, request.prompt, "", request.session_id) 
 
 @router.post("/", response_model=CreateAgentResponse)
 async def create_agent(

@@ -19,6 +19,44 @@ services:
     networks:
       - sons_of_turing_net
 
+  redis-for-backend:
+    image: docker.io/redis:7
+    restart: always
+    # CHANGEME: row below to secure redis password
+    command: >
+      --requirepass myredissecret
+      --maxmemory-policy noeviction
+    ports:
+      - 6380:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+    networks:
+      - sons_of_turing_net
+
+  qdrant-for-backend:
+    image: qdrant/qdrant:latest
+    restart: always
+    container_name: qdrant-for-sonsofturing
+    environment:
+      QDRANT__SERVICE__API_KEY=myqdrantsecret
+    ports:
+      - 6333:6333
+      - 6334:6334
+    expose:
+      - 6333
+      - 6334
+      - 6335
+    configs:
+      - source: qdrant_config
+        target: /qdrant/config/production.yaml
+    networks:
+      - sons_of_turing_net
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+
   # jaeger:
   #   image: jaegertracing/all-in-one:latest
   #   environment:
@@ -36,3 +74,8 @@ networks:
 
 volumes:
   postgres-data:
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: INFO
