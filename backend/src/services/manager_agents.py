@@ -1,6 +1,6 @@
 from datetime import datetime
 from repository.agents_repository import IAgentsRepository
-from models.ui.agents.manage_agents import GetAgentByIdResponse, GetAllAgentsResponse, CreateAgentRequest, CreateAgentResponse
+from models.ui.agents.manage_agents import GetAgentByIdResponse, GetAllAgentsResponse, CreateAgentRequest, CreateAgentResponse, UpdateAgentRequest, UpdateAgentResponse
 from models.dto.agents.agentLLM import AgentFactoryInput, ModelLLM, AgentExecuteOutput
 import abc
 from config.database.cache_manager import cache_manager
@@ -11,6 +11,22 @@ from typing import Optional
 class IManagerAgentsService(abc.ABC):
     @abc.abstractmethod
     async def get_all_agents(self, name_part: str, skip: int, limit: int):
+        pass
+
+    @abc.abstractmethod
+    async def get_agent_by_id(self, agent_id: int):
+        pass
+
+    @abc.abstractmethod
+    async def execute_agent_action(self, agent_id: int, prompt: str, user_id: str, session_id: Optional[str]) -> Optional[AgentExecuteOutput]:
+        pass
+
+    @abc.abstractmethod
+    async def create_agent(self, request: CreateAgentRequest) -> CreateAgentResponse:
+        pass
+
+    @abc.abstractmethod
+    async def update_agent(self, agent_id: int, request: UpdateAgentRequest) -> Optional[UpdateAgentResponse]:
         pass
 
 class ManagerAgentsService(IManagerAgentsService):
@@ -140,6 +156,44 @@ class ManagerAgentsService(IManagerAgentsService):
         )
         
         return CreateAgentResponse(
+            id=agent_entity.id,
+            name=agent_entity.name,
+            description=agent_entity.description,
+            model=agent_entity.model,
+            tools=[tool.id for tool in agent_entity.tools],
+            reasoning=agent_entity.reasoning,
+            type_model=agent_entity.type_model,
+            output_parser=agent_entity.output_parser,
+            instructions=agent_entity.instructions,
+            has_storage=agent_entity.has_storage,
+            knowledge_collection_name=agent_entity.knowledge_collection_name,
+            knowledge_description=agent_entity.knowledge_description,
+            knowledge_top_k=agent_entity.knowledge_top_k
+        )
+    
+    async def update_agent(self, agent_id: int, request: UpdateAgentRequest) -> Optional[UpdateAgentResponse]:
+        agent_entity = await self.agents_repository.update_agent(
+            agent_id=agent_id,
+            name=request.name,
+            description=request.description,
+            model=request.model,
+            tools=request.tools,
+            reasoning=request.reasoning,
+            type_model=request.type_model,
+            output_parser=request.output_parser,
+            instructions=request.instructions,
+            has_storage=request.has_storage,
+            knowledge_collection_name=request.knowledge_collection_name,
+            knowledge_description=request.knowledge_description,
+            knowledge_top_k=request.knowledge_top_k
+        )
+        
+        if agent_entity is None:
+            return None
+        
+        await self.cache.delete(f"get_agent_by_id:{agent_id}")
+        
+        return UpdateAgentResponse(
             id=agent_entity.id,
             name=agent_entity.name,
             description=agent_entity.description,

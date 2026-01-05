@@ -99,3 +99,82 @@ class CreateAgentResponse(BaseModel):
     knowledge_collection_name: Optional[str] = None
     knowledge_description: Optional[str] = None
     knowledge_top_k: Optional[int] = 5
+
+class UpdateAgentRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, min_length=1)
+    model: Optional[int] = Field(None, ge=1, le=7)
+    tools: Optional[list[int]] = Field(None)
+    reasoning: Optional[bool] = None
+    type_model: Optional[str] = Field(None, min_length=1, max_length=255)
+    output_parser: Optional[str] = Field(None, max_length=255)
+    instructions: Optional[str] = Field(None)
+    has_storage: Optional[bool] = None
+    knowledge_collection_name: Optional[str] = Field(None, max_length=255)
+    knowledge_description: Optional[str] = Field(None)
+    knowledge_top_k: Optional[int] = Field(None, ge=1)
+
+    @field_validator('model')
+    @classmethod
+    def validate_model(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return value
+        try:
+            ModelLLM.get_from_int(value)
+        except ValueError:
+            valid_values = [model.value for model in ModelLLM]
+            raise ValueError(f"model must be a valid ModelLLM value. Valid values: {valid_values}")
+        return value
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("name cannot be empty or contain only whitespace")
+        return value.strip()
+    
+    @field_validator('description')
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("description cannot be empty or contain only whitespace")
+        return value.strip()
+    
+    @field_validator('type_model')
+    @classmethod
+    def validate_type_model(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("type_model cannot be empty or contain only whitespace")
+        return value.strip()
+    
+    @field_validator('tools')
+    @classmethod
+    def validate_tools(cls, value: Optional[list[int]]) -> Optional[list[int]]:
+        if value is None:
+            return value
+        if value and any(tool_id <= 0 for tool_id in value):
+            raise ValueError("all tool IDs must be positive integers")
+        if len(value) != len(set(value)):
+            raise ValueError("tools list cannot contain duplicate IDs")
+        return value
+
+class UpdateAgentResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    model: int
+    tools: list[int]
+    reasoning: bool
+    type_model: str
+    output_parser: Optional[str] = None
+    instructions: Optional[str] = None
+    has_storage: bool = False
+    knowledge_collection_name: Optional[str] = None
+    knowledge_description: Optional[str] = None
+    knowledge_top_k: Optional[int] = 5

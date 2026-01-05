@@ -7,6 +7,7 @@ from config.monitory.otel_ai_config import otel_ai_config
 from fastapi import FastAPI, HTTPException, status
 from config.database.postgres_manager import postgres_manager
 from controllers import manage_agents
+from controllers import auth_controller
 
 
 @contextlib.asynccontextmanager
@@ -34,6 +35,7 @@ async def http_exception_handler(_, exc):
 
 
 app.include_router(manage_agents.router)
+app.include_router(auth_controller.router)
 
 
 

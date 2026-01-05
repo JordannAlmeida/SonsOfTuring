@@ -8,7 +8,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-logger = logging.getLogger(os.getenv("APP_NAME", "OpenTelemetryConfig"))
+logger = logging.getLogger("OtelAIConfig")
 
 class OtelAIConfig:
 
